@@ -4,6 +4,7 @@
 # Idea: Agar.io simulation
 # Description: Bigger balls eat the smaller ones. The red balls, the splitters, blow white balls up keeping similar mass.
 # Autor: Iván Gonzalo Moyano Pérez
+# Version: Normalizing classes
 #
 #########################################################
 
@@ -11,21 +12,38 @@
 class ballUniverse(object):
 
     def __init__(self):
+
+        self.NORMAL_COLOR = "#ffffff"
+        self.SPLITTER_COLOR = "#ff0000"
+        self.GAME_COLOR = "#ffcc00"
+        self.SAFE_COLOR = "#333333"
+
         self.Balls = []
-        self.amount = 30
+        self.amount = 20
         self.splitter_amount = 5
 
         for i in range(0, self.amount):
-            self.Balls.append(Ball(self))
+            self.appendBall()
 
         for i in range(0, self.splitter_amount):
-            self.Balls.append(Ball(self, 'splitter', '', '', 20, 0))
+            self.appendBall('splitter', '', '', 20, 0)
+
+    def appendBall(self, kind='', x='', y='', diam='', safe=''):
+        self.Balls.append(Ball(self, kind, x, y, diam, safe))
+
+    def killBall(self, ball):
+        self.Balls.remove(ball)
+
+    def refreshUniverse(self):
+        for i in range(0, len(self.Balls)):
+            if(i >= len(self.Balls)):
+                break
+            self.Balls[i].run()
 
 
 class Ball(object):
 
-    def __init__(self, parent, splitter='', x='', y='', diam='', safe=''):
-
+    def __init__(self, parent, kind='', x='', y='', diam='', safe=''):
         self.direction = [-1, 1]
         self.parent = parent
         self.diam = random(20, 50)
@@ -37,7 +55,7 @@ class Ball(object):
         self.x = random(50, width)
         self.y = random(50, height)
         self.id = random(0, 10000)
-        self.splitter = splitter
+        self.kind = 'normal'
         self.safe = 50
         self.growTo = 0
 
@@ -49,15 +67,16 @@ class Ball(object):
             self.diam = diam
         if(safe != ''):
             self.safe = safe
+            
+        if(kind !=''):
+            self.kind = kind
 
     def isCollision(self, b1, b2):
-
         return sqrt((b1.x - b2.x) * (b1.x - b2.x) + (b1.y - b2.y) * (b1.y - b2.y)) < b1.diam / 2 + b2.diam / 2
 
     def splitBall(self, b1):
-
         diam = b1.diam
-
+        kind = b1.kind
         for n in range(1, 100):
             nro = n
             if diam / nro < 20:
@@ -67,39 +86,51 @@ class Ball(object):
         diam = diam / nro
 
         for j in range(0, nro):
-            self.parent.Balls.append(Ball(self.parent, '', x, y, diam, 100))
+            self.parent.appendBall(kind, x, y, diam, 100)
 
-        self.parent.Balls.remove(b1)
+        self.parent.killBall(b1)
         background("#ff0000")
 
     def run(self):
+        u = self.parent  # u = universe
 
         if(self.safe > 0):
             self.safe -= 1
 
-        for i in range(0, len(self.parent.Balls)):
+        for i in range(0, len(u.Balls)):
 
-            if(self.id != self.parent.Balls[i].id and self.isCollision(self, self.parent.Balls[i]) and self.safe == 0 and self.parent.Balls[i].safe == 0 and self.splitter == '' and self.parent.Balls[i].splitter == ''):
-
-                if(self.parent.Balls[i].diam < self.diam):
-
-                    self.growTo += self.parent.Balls[i].diam
-                    self.parent.Balls.remove(self.parent.Balls[i])
-                else:
-                    self.parent.Balls[i].growTo += self.diam
-                    self.parent.Balls.remove(self)
-
-                break
-
-            elif(self.id != self.parent.Balls[i].id and self.safe == 0 and self.parent.Balls[i].safe == 0 and self.isCollision(self, self.parent.Balls[i])):
-
-                self.splitBall(
-                    self.parent.Balls[i] if(self.splitter == 'splitter') else self)
-
-                break
-
-        fill(("#333333" if self.safe > 0 else (
-            "#ffffff" if self.splitter == '' else '#ff0000')))
+            if(self.isCollision(self, u.Balls[i]) and self != u.Balls[i]):
+                
+                if(self.safe == 0 and u.Balls[i].safe == 0):
+                    
+                    if(self.kind != 'splitter' and u.Balls[i].kind != 'splitter' ):
+                
+                        if(u.Balls[i].diam < self.diam):
+        
+                            self.growTo += u.Balls[i].diam
+                            u.killBall(u.Balls[i])
+                        else:
+                            u.Balls[i].growTo += self.diam
+                            u.killBall(self)
+        
+                        break
+        
+                    elif(self.kind != 'splitter' or u.Balls[i].kind != 'splitter'):
+        
+                        self.splitBall(u.Balls[i] if(self.kind == 'splitter') else self)
+        
+                        break
+    
+        if self.kind == 'normal':
+            ball_color = u.NORMAL_COLOR
+            
+        if self.safe > 0:
+            ball_color = u.SAFE_COLOR
+            
+        if self.kind == 'splitter':
+            ball_color = u.SPLITTER_COLOR
+    
+        fill(ball_color)
 
         ellipse(self.x, self.y, self.diam, self.diam)
 
@@ -134,7 +165,6 @@ def setup():
 def draw():
 
     background(0)
-    for i in range(0, len(bU.Balls)):
-        if(i >= len(bU.Balls)):
-            break
-        bU.Balls[i].run()
+    bU.refreshUniverse()
+
+
